@@ -34,7 +34,7 @@ Respond ONLY with valid JSON, no markdown, no preamble:
 }`;
 
   try {
-    const response = await fetch('/api/api-generate', {
+    const response = await fetch('/api/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

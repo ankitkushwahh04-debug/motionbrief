@@ -1037,6 +1037,8 @@ document.getElementById('clientInput').addEventListener('input', () => {
 
 /* ─── GENERATE BRIEF ─── */
 let lastBriefText = '';
+let lastBriefData = null;   // ← FIX: was missing, broke PDF + approval link
+
 async function generateBrief() {
   const input = document.getElementById('clientInput').value.trim();
   const industry = document.getElementById('industry').value;
@@ -1068,7 +1070,7 @@ async function generateBrief() {
 
 Client input: "${input}"
 Industry: ${industry}
-Output format: ${format}  
+Output format: ${format}
 Budget: ${budget}
 Desired tone: ${tone}
 
@@ -1079,26 +1081,34 @@ Respond ONLY with valid JSON, no markdown, no preamble:
   "timing": "Duration recommendation, pacing notes, rhythm approach (2 sentences)",
   "color_mood": "Color palette direction, mood, emotional tone (2 sentences)",
   "deliverables": "Specific file formats, dimensions, quantities, naming conventions (2 sentences)",
-  "scope_notes": "What's included, what's excluded, revision rounds suggested (2 sentences)",
+  "scope_notes": "What is included, what is excluded, revision rounds suggested (2 sentences)",
   "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6"]
 }`;
 
   try {
+    // ← FIX: was calling api.anthropic.com directly (blocked by CORS).
+    //         Now calls your own secure Vercel function at /api/generate
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify({ input, industry, format, budget, tone, prompt })
     });
 
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Server error ${res.status}: ${errText}`);
+    }
+
     const data = await res.json();
+
+    if (data.error) throw new Error(data.error);
+
     const raw = data.content.map(i => i.text || '').join('');
     const clean = raw.replace(/```json|```/g, '').trim();
     const brief = JSON.parse(clean);
 
+    // ← FIX: store brief in both variables so PDF + approval link work
+    lastBriefData = brief;
     lastBriefText = `MOTIONBRIEF — Generated Brief\n\nSUMMARY\n${brief.summary}\n\nSTYLE DIRECTION\n${brief.style_direction}\n\nTIMING & PACING\n${brief.timing}\n\nCOLOR & MOOD\n${brief.color_mood}\n\nDELIVERABLES\n${brief.deliverables}\n\nSCOPE NOTES\n${brief.scope_notes}\n\nTAGS: ${(brief.tags||[]).join(', ')}`;
 
     const cardDefs = [
@@ -1127,7 +1137,6 @@ Respond ONLY with valid JSON, no markdown, no preamble:
 
     panel.classList.add('visible');
 
-    // Stagger reveal
     cardDefs.forEach((_, i) => {
       setTimeout(() => {
         document.getElementById('oc'+i)?.classList.add('revealed');
@@ -1138,8 +1147,8 @@ Respond ONLY with valid JSON, no markdown, no preamble:
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   } catch(err) {
-    btnText.textContent = 'Something went wrong — try again';
-    console.error(err);
+    btnText.textContent = '⚠️ ' + (err.message || 'Something went wrong — try again');
+    console.error('Generate error:', err);
     updateStepPills(3);
   } finally {
     btn.disabled = false;

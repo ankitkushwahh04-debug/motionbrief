@@ -38,8 +38,6 @@ Respond ONLY with valid JSON, no markdown, no preamble:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,       // stored safely in Vercel
-        'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',

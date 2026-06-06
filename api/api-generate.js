@@ -34,7 +34,7 @@ Respond ONLY with valid JSON, no markdown, no preamble:
 }`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/api-generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
